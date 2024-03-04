@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Page</title>
+    <!-- Bootstrap CSS -->
+    <link href="/node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chat-header .avatar {
+            margin-right: 10px;
+        }
+
+        .chat-header h4 {
+            margin: 0;
+        }
+
+        .chat-container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-container img {
+            width: 4rem;
+        }
+
+        .message {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.sent {
+            background-color: rgba(23, 114, 246, .1);
+            justify-content: flex-end;
+        }
+
+        .message.received {
+            background-color: #F0F0F0;
+            justify-content: flex-start;
+        }
+
+        .message .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .message .avatar+div {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            padding: 20px;
+        }
+
+        .input-group {
+            margin-top: 20px;
+        }
+
+        .loading-icon {
+            width: 20px;
+            height: 20px;
+            background-image: image('https://via.placeholder.com/50');
+            border: 2px solid #ccc;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            position: relative;
+            margin-right: 5px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg) scale(1);
+            }
+
+            50% {
+                transform: rotate(360deg) scale(1.2);
+            }
+
+            100% {
+                transform: rotate(720deg) scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <img src="https://gips0.baidu.com/it/u=3412704749,2398649293&fm=3012&app=3012&autime=1704771203&size=b360,360"
+                    class="avatar rounded-circle" alt="Robot Avatar">
+                <h4>AJ-ROOM-Bot</h4>
+            </div>
+
+            <!-- Messages -->
+            <div class="messages"></div>
+
+
+            <!-- Input Box -->
+            <div class="input-group">
+                <input type="text" id="userMessage" class="form-control" placeholder="输入你的内容...">
+                <button id="sendMessage" class="btn btn-primary">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="/node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        // Function to add a message to the chat container
+        function addMessage(speaker, message, isUser = false) {
+            const messagesContainer = document.querySelector('.messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', speaker === 'user' ? 'sent' : 'received');
+            messageDiv.innerHTML = `
+        <img src="${speaker === 'user' ? 'https://pic1.zhimg.com/v2-abed1a8c04700ba7d72b45195223e0ff_l.jpg?source=172ae18b' : 'https://gips0.baidu.com/it/u=3412704749,2398649293&fm=3012&app=3012&autime=1704771203&size=b360,360'}" class="avatar" alt="${speaker === 'user' ? '你' : 'AJ'} Avatar">
+        <div>
+            <p>${speaker === 'user' ? '你' : 'AJ'}</p>
+            <p class="${isUser ? 'user-message' : 'bot-message'}">${message}</p>
+        </div>
+    `;
+            messagesContainer.appendChild(messageDiv);
+
+            // Scroll to the bottom of the chat container
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Function to handle sending a message
+        function sendMessage() {
+            const userMessageInput = document.getElementById('userMessage');
+            const userMessage = userMessageInput.value.trim();
+
+            if (userMessage) {
+                // Add user message to chat immediately
+                addMessage('user', userMessage, true);
+
+                // Clear input field
+                userMessageInput.value = '';
+
+                // Start loading animation
+                startLoadingAnimation();
+
+                // 发送用户消息并获取机器人回复
+                axios.post('https://f24y3q.laf.dev/aj/ask', {
+                        question: userMessage
+                    })
+                    .then(response => {
+                        stopLoadingAnimation();
+                        const results = parseResponseData(response.data);
+                        const botResponse = results.map(result => result.result.replace(/<br>/g, '')).join('');
+                        // Add bot message to chat with typing effect
+                        addBotMessageWithTyping(botResponse);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching bot response:', error);
+                        stopLoadingAnimation();
+                        addMessage('bot', 'Sorry, an error occurred while fetching response.');
+                    });
+            }
+        }
+
+        function startLoadingAnimation() {
+            const loadingIcon = document.createElement('div');
+            loadingIcon.classList.add('loading-icon');
+            document.querySelector('.messages').appendChild(loadingIcon);
+        }
+
+        function stopLoadingAnimation() {
+            const loadingIcon = document.querySelector('.loading-icon');
+            if (loadingIcon) {
+                loadingIcon.remove();
+            }
+        }
+
+        function addBotMessageWithTyping(message) {
+            const typingSpeed = 50; // Adjust typing speed as needed
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.classList.add('message', 'received');
+            const botMessageAvatar = document.createElement('img');
+            botMessageAvatar.src =
+                'https://gips0.baidu.com/it/u=3412704749,2398649293&fm=3012&app=3012&autime=1704771203&size=b360,360';
+            botMessageAvatar.classList.add('avatar');
+            const botMessageContent = document.createElement('div');
+            const botName = document.createElement('p');
+            botName.textContent = 'AJ';
+            botMessageContent.appendChild(botName);
+            const botMessageText = document.createElement('p');
+            botMessageContent.appendChild(botMessageText);
+            botMessageDiv.appendChild(botMessageAvatar);
+            botMessageDiv.appendChild(botMessageContent);
+            const messageContainer = document.querySelector('.messages');
+            messageContainer.appendChild(botMessageDiv);
+
+            // Calculate typing speed based on message length
+            const typingInterval = setInterval(() => {
+                if (botMessageText.textContent.length < message.length) {
+                    botMessageText.textContent += message.charAt(botMessageText.textContent.length);
+                    const loadingIcon = document.querySelector('.loading-icon');
+                    if (loadingIcon) {
+                        loadingIcon.style.left = botMessageText.offsetWidth + 'px';
+                    }
+                } else {
+                    clearInterval(typingInterval);
+                }
+            }, Math.max(150 - message.length * 2, 50)); // Adjust speed based on message length
+        }
+
+        function parseResponseData(responseData) {
+            // 将响应数据按行分割成数组
+            const responseLines = responseData.split('\n').filter(line => line.trim() !== '');
+
+            // 遍历每行数据，去掉开头的 "data: " 部分，然后解析 JSON 字符串
+            const results = responseLines.map(line => {
+                const jsonString = line.slice(6); // 去掉 "data: " 部分
+                return JSON.parse(jsonString);
+            });
+
+            return results;
+        }
+
+        // Event listener for sending message button
+        document.getElementById('sendMessage').addEventListener('click', sendMessage);
+    </script>
+</body>
+
+</html>
